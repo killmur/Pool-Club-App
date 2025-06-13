@@ -1,6 +1,6 @@
 # 🎱 UL Pool Club Website
 
-The official website for the **University of Limerick Pool Club**, built and maintained by the club captain. Designed to provide members and visitors with access to club news, event signups, booking functionality, and member profiles.
+The official website for the **University of Limerick Pool Club**, built and maintained by Killian Murnane. Designed to provide members and visitors with access to club news, event signups, booking functionality, and member profiles.
 
 > 🚫 This project is private and intended for internal club use only.
 
@@ -87,7 +87,7 @@ NEXTAUTH_URL=http://localhost:3000
 
 ## 📜 License
 
-© 2025 University of Limerick Pool Club. All rights reserved.
+© 2025 Killian Murnane. All rights reserved.
 
 This project is intended for internal club use only. Redistribution, commercial use, or derivative works are prohibited without express written permission from the UL Pool Club executive committee.
 
@@ -95,7 +95,7 @@ This project is intended for internal club use only. Redistribution, commercial 
 
 ## 🧠 Notes
 
-Developed and maintained by the current club captain.
+Developed and maintained by Killian Murnane, current Captain of the UL Pool Club as of 2025.
 
 For questions or contributions, please contact the captain or open a GitHub issue (if you have access).
 
