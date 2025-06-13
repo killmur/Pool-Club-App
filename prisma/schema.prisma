@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int               @id @default(autoincrement())
+  full_name       String
+  email           String            @unique
+  password_hash   String
+  is_admin        Boolean?          @default(false)
+  email_verified  Boolean?          @default(false)
+  status          Status?           @default(pending)
+  auth_token      String?
+  last_login      DateTime?
+  created_at      DateTime          @default(now())
+  is_super_admin  Boolean           @default(false)
+
+  team_members    TeamMember[]
+  partner_requests PartnerRequest[]
+  admins          Admin[]           @relation("AdminUser")
+}
+
+enum Status {
+  active
+  pending
+  inactive
+}
+
+model Admin {
+  id     Int     @id
+  role   Role
+
+  user   User    @relation("AdminUser", fields: [id], references: [id])
+  logs   AdminLog[]
+}
+
+enum Role {
+  Chairperson
+  Secretary
+  Treasurer
+  PublicRelationsOfficer
+  HealthAndSafetyOfficer
+}
+
+model AdminLog {
+  id          Int      @id @default(autoincrement())
+  admin_id    Int
+  action      String
+  target_type String?
+  target_id   Int?
+  description String?
+  ip_address  String?
+  user_agent  String?
+  created_at  DateTime @default(now())
+
+  admin       Admin    @relation(fields: [admin_id], references: [id], onDelete: Cascade)
+}
+
+model Event {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  week        Int
+  day         String?
+  semester    Int
+  type        EventType @default(Social)
+  created_at  DateTime  @default(now())
+  Location    String
+}
+
+enum EventType {
+  League
+  Tournament
+  Social
+  Casual
+}
+
+model LastKnownMember {
+  id         Int      @id @default(autoincrement())
+  name       String
+  scraped_at DateTime? @default(now())
+}
+
+model League {
+  id         Int       @id @default(autoincrement())
+  name       String
+  semester   String
+  ay         String
+  is_started Boolean   @default(false)
+  created_at DateTime  @default(now())
+  created_by String
+
+  fixtures   LeagueFixture[]
+  standings  LeagueStanding[]
+  partners   PartnerRequest[]
+}
+
+model LeagueFixture {
+  id           Int    @id @default(autoincrement())
+  league_id    Int
+  round_number Int
+  team1_id     Int
+  team2_id     Int
+  team1_score  Int?
+  team2_score  Int?
+
+  league       League @relation(fields: [league_id], references: [id], onDelete: Cascade)
+  team1        Team   @relation("Team1", fields: [team1_id], references: [id], onDelete: Cascade)
+  team2        Team   @relation("Team2", fields: [team2_id], references: [id], onDelete: Cascade)
+}
+
+model LeagueStanding {
+  id        Int    @id @default(autoincrement())
+  league_id Int
+  team_id   Int
+  played    Int?   @default(0)
+  won       Int?   @default(0)
+  lost      Int?   @default(0)
+  ff        Int?   @default(0)
+  fa        Int?   @default(0)
+  fd        Int?   @default(0)
+  points    Int?   @default(0)
+
+  league    League @relation(fields: [league_id], references: [id], onDelete: Cascade)
+  team      Team   @relation(fields: [team_id], references: [id], onDelete: Cascade)
+}
+
+model PartnerRequest {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  league_id  Int
+  note       String?
+  created_at DateTime @default(now())
+
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  league     League   @relation(fields: [league_id], references: [id], onDelete: Cascade)
+}
+
+model Team {
+  id           Int            @id @default(autoincrement())
+  name         String
+
+  members      TeamMember[]
+  fixtures1    LeagueFixture[] @relation("Team1")
+  fixtures2    LeagueFixture[] @relation("Team2")
+  standings    LeagueStanding[]
+}
+
+model TeamMember {
+  id       Int   @id @default(autoincrement())
+  team_id  Int
+  user_id  Int?
+
+  team     Team  @relation(fields: [team_id], references: [id], onDelete: Cascade)
+  user     User? @relation(fields: [user_id], references: [id], onDelete: Restrict)
+}
