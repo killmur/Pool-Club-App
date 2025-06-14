@@ -3,18 +3,21 @@ import { useState } from 'react';
 import Image from "next/image";
 import Link from "next/link"
 import Flash from "@/components/flash";
-import { X } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
-import { signIn } from '@/app/actions/auth'
-import {EyeOff, Eye} from "lucide-react"
+import { X, Eye, EyeOff } from 'lucide-react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
+import { register } from '@/app/actions/auth';
+import { minLength } from 'zod/v4';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [showRegisterFields, setShowRegisterFields] = useState(false);
   const [accept, setAccept] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({
     email: '',
     password: '',
@@ -27,27 +30,40 @@ export default function LoginPage() {
     upperCase: '',
     numberSpecial: '',
   });
-  const [showPassword, setShowPassword] = useState(false);
-
-  const getColorClass = (color: string) => {
-  switch (color) {
-    case "green":
-      return "text-green-500";
-    case "red":
-      return "text-red-500";
-    default:
-      return "text-gray-500";
-  }
-};
 
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
 
-  // ✅ Live validation functions
+  const getColorClass = (color: string | undefined) => {
+    switch (color) {
+      case 'green':
+        return 'text-green-500';
+      case 'red':
+        return 'text-red-500';
+      default:
+        return 'text-gray-500';
+    }
+  };
+
+  const validatePasswordHelper = (value: string) => {
+    const minLengthRegex = /^.{8,}$/;
+    const uppercaseRegex = /[A-Z]/;
+    const numberOrSymbolRegex = /[^a-zA-Z]/;
+
+    if(showRegisterFields){
+      return {
+        minLength: minLengthRegex.test(value) ? "green": "red",
+        upperCase: uppercaseRegex.test(value) ? "green" : "red",
+        numberSpecial: numberOrSymbolRegex.test(value) ? "green" : "red",
+      } 
+    }
+    return {};
+  };
+
   const validateEmail = (value: string) => {
     if(showRegisterFields){
     if (!value) return 'Email is required';
-    if (!value.includes('@ul.ie')||!value.includes('@studentmail.ul.ie')) return 'Email must be an @studentmail.ul.ie or @ul.ie email address';
+    if (!value.endsWith('@ul.ie') && !value.endsWith('@studentmail.ul.ie')) return 'Email must be an @studentmail.ul.ie or @ul.ie email address';
     return '';
     }
     return '';
@@ -57,29 +73,14 @@ export default function LoginPage() {
     if(showRegisterFields){
     if (!value) return 'Password is required';
     const combinedRegex = /^(?=.*[A-Z])(?=.*[^a-zA-Z])(.{8,})$/;
-    
     if (!combinedRegex.test(value)) return "Password is not valid";
-    
     return '';
   }
   return '';
   };
 
-  const validatePasswordHelper = (value: string) => {
-    const minLengthRegex = /^.{8,}$/;
-    const uppercaseRegex = /[A-Z]/;
-    const numberOrSymbolRegex = /[^a-zA-Z]/;
-
-    return {
-      minLength: minLengthRegex.test(value) ? "green" : "red",
-      upperCase: uppercaseRegex.test(value) ? "green" : "red",
-      numberSpecial: numberOrSymbolRegex.test(value) ? "green" : "red",
-    };
-  };
-
   const validateUsername = (value: string) => {
     if (!value) return 'Name is required';
-
     return '';
   };
 
@@ -91,21 +92,18 @@ export default function LoginPage() {
   const validateTerms = (value: boolean) => {
     if(!value) return 'You must accept these policies to access the site';
     return '';
-  }
+  };
 
-  // ✅ Field-level change handlers with validation
   const handleEmailChange = (value: string) => {
     setEmail(value);
     setErrors((prev) => ({ ...prev, email: validateEmail(value) }));
   };
 
   const handlePasswordChange = (value: string) => {
-  setPassword(value);
-  setErrors((prev) => ({ ...prev, password: validatePassword(value) }));
-  const helperColours = validatePasswordHelper(value);
-  setColours(helperColours);
-};
-
+    setPassword(value);
+    setErrors((prev) => ({ ...prev, password: validatePassword(value) }));
+    setColours(validatePasswordHelper(value));
+  };
 
   const handleUsernameChange = (value: string) => {
     setUsername(value);
@@ -120,31 +118,22 @@ export default function LoginPage() {
   const handleAcceptChange = (value: boolean) => {
     setAccept(value);
     setErrors((prev) => ({...prev, accept: validateTerms(value)}));
-  }
-
-  const handleLogin = async (e: React.FormEvent) => {
-    if(!accept){
-    e.preventDefault();
-
-
-    //await signIn();
-    }
   };
 
-  function getErrorMessage(error: string) {
-  switch (error) {
-    case 'NoUser':
-      return 'The email address you entered was incorrect';
-    case 'InvalidPassword':
-      return 'The password you entered was incorrect';
-    case 'MissingCredentials':
-      return 'Please ensure you enter both your email and password';
-    case 'CredentialsSignin':
-      return 'Your email address or password was incorrect';
-    default:
-      return 'Unexpected error. Please try again';
-  }
-}
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const result = await signIn('credentials', {
+      email,
+      password,
+      redirect: false,
+    });
+
+    if (result?.ok) {
+      router.push('/');
+    } else {
+      router.push('/login?error=CredentialsSignin');
+    }
+  };
 
   const handleRegister = async () => {
     if (!showRegisterFields) {
@@ -166,23 +155,38 @@ export default function LoginPage() {
       accept: acceptErr,
     });
 
-    if (emailErr || passwordErr || usernameErr || confirmErr) return;
+    setColours(validatePasswordHelper(password));
 
-    // await register()
+    if (emailErr || passwordErr || usernameErr || confirmErr || acceptErr) return;
+
+    try {
+      await register({ email, password, full_name: username });
+      alert('Registration successful! You can now log in.');
+      setShowRegisterFields(false);
+    } catch (e: any) {
+      alert(e?.message || 'Registration failed.');
+    }
   };
 
   const closeRegister = async () => {
     setShowRegisterFields(false);
-    setErrors({
-      email: '',
-      password: '',
-      username: '',
-      confirmPass: '',
-      accept: '',
-    })
     return;
-  }
+  };
 
+  function getErrorMessage(error: string | null) {
+    switch (error) {
+      case 'NoUser':
+        return 'The email address you entered was incorrect';
+      case 'InvalidPassword':
+        return 'The password you entered was incorrect';
+      case 'MissingCredentials':
+        return 'Please ensure you enter both your email and password';
+      case 'CredentialsSignin':
+        return 'Your email address or password was incorrect';
+      default:
+        return 'Unexpected error. Please try again';
+    }
+  }
 
   return (
     <form onSubmit={handleLogin} className="p-4 my-auto max-w-lg h-full mx-auto bg-gray-300 dark:bg-gray-900 rounded-4xl text-gray-800 dark:text-gray-100" autoComplete='false'>
@@ -196,7 +200,7 @@ export default function LoginPage() {
   `}
 >
   <Flash type="info" close={false} >
-    Make sure you enter your name as it's shown on&nbsp;
+    Make sure you enter your name as it&apos;s shown on&nbsp;
     <Link
       href="https://ulwolves.ie"
       className="text-blue-600 hover:underline dark:text-blue-400"
